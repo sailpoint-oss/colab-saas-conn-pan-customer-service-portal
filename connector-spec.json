@@ -1,0 +1,124 @@
+{
+	"name": "saas-conn-pan-csp",
+	"commands": [
+		"std:account:list",
+		"std:account:read",
+		"std:test-connection",
+		"std:entitlement:list",
+		"std:entitlement:read"
+	],
+	"sourceConfigInitialValues": {
+		"baseURL": "https://prod.api.paloaltonetworks.com",
+		"authUrl": "https://identity.paloaltonetworks.com/as/token.oauth2"
+	},
+	"sourceConfig": [
+		{
+			"type": "menu",
+			"label": "Configuration",
+			"items": [
+				{
+					"type": "section",
+					"sectionTitle": "Authentication",
+					"sectionHelpMessage": "Provide connection parameters to interact securely with the target application.",
+					"items": [
+						{
+							"key": "baseURL",
+							"label": "Base URL",
+							"type": "text",
+							"placeholder": "https://prod.api.paloaltonetworks.com",
+							"required": true
+						},
+						{
+							"key": "authUrl",
+							"label": "OAuth URL",
+							"placeholder": "https://identity.paloaltonetworks.com/as/token.oauth2",
+							"type": "text",
+							"required": true
+						},
+						{
+							"key": "client_id",
+							"label": "Client ID",
+							"type": "text",
+							"required": true
+						},
+						{
+							"key": "client_secret",
+							"label": "Client Secret",
+							"type": "secret",
+							"required": true
+						}
+					]
+				}
+			]
+		}
+	],
+	"accountSchema":{
+		"displayAttribute": "email",
+		"identityAttribute": "userAccountId",
+		"attributes":[
+			{
+				"name": "userAccountId",
+				"type": "string",
+				"description": "ID for the user account."
+			},
+			{
+				"name": "supportAccountId",
+				"type": "string",
+				"description": "ID for the support account."
+			},
+			{
+				"name": "email",
+				"type": "string",
+				"description": "Email of the user."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Description of the activity for the user."
+			},
+			{
+				"name": "activationDate",
+				"type": "string",
+				"description": "Activation date for the user."
+			},
+			{
+				"name": "membershipId",
+				"type": "string",
+				"description": "Membership ID."
+			},
+			{
+				"name": "roles",
+				"type": "string",
+				"description": "Roles the user holds.",
+				"entitlement": true,
+				"managed": true,
+				"multi": true,
+				"schemaObjectType": "role"
+			}
+		]
+	},
+	"entitlementSchemas": [
+		{
+			"type": "role",
+			"displayAttribute": "name",
+			"identityAttribute": "id",
+			"attributes": [
+				{
+					"name": "id",
+					"type": "int",
+					"description": "ID for the role"
+				},
+				{
+					"name": "name",
+					"type": "string",
+					"description": "Name of the role."
+				},
+				{
+					"name": "description",
+					"type": "string",
+					"description": "Description of the role."
+				}
+			]
+		}
+	]
+}
