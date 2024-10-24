@@ -1,9 +1,10 @@
 import { ConnectorError, logger } from "@sailpoint/connector-sdk"
-import { auth, check_token_expiration } from "./tools/generic-functions"
+import { auth, check_token_expiration, dateCustomFormatting, dateCustomFormattingZeros } from "./tools/generic-functions"
 import { HTTPFactory } from "./http/http-factory"
 import { User } from "./model/user"
 import { Role } from "./model/role"
 import { rolesRef } from "./data/roles"
+import { AxiosError } from "axios"
 
 export class PanCspClient {
     constructor(config: any) {
@@ -24,7 +25,7 @@ export class PanCspClient {
         // Store Client Credentials in Global Variables
         globalThis.__CLIENT_ID = config?.client_id
         globalThis.__CLIENT_SECRET = config?.client_secret
-        globalThis.__USER_PAUSE = config?.userUpdatePause ? config?.userUpdatePause : 500
+        globalThis.__USER_PAUSE = config?.userUpdatePause ? config?.userUpdatePause : 750
     }
 
     async checkTokenValidity(): Promise<void> {
@@ -55,12 +56,20 @@ export class PanCspClient {
         let users: User[] = []
         for (var csp_u of response.data.data) {
             let user = new User()
-            user.userAccountId = csp_u.userAccountId
-            user.supportAccountId = csp_u.supportAccountId
+            user.userAccountId = csp_u.userAccountId.toString()
+            user.supportAccountId = csp_u.supportAccountId.toString()
             user.activationDate = csp_u.activationDate
+            user.expirationDate = csp_u.expirationDate
             user.email = csp_u.email
             user.description = csp_u.description
-            user.membershipId = csp_u.membershipId
+            user.membershipId = csp_u.membershipId.toString()
+            // Check if active
+            let date = new Date()
+            const dateFormat = dateCustomFormatting(date)
+            if (user.expirationDate && user.expirationDate < dateFormat) {
+                user.IIQDisabled = true
+            }
+
             user.roles = []
             for (var memRole of csp_u.membershipRoles) {
                 let role = new Role()
@@ -76,26 +85,41 @@ export class PanCspClient {
     async getAccount(identity: string): Promise<User> {
         await this.checkTokenValidity()
         let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
-        const response = await httpClient.get('/v2/memberships?email=' + identity).catch((error: unknown) => {
-            throw new ConnectorError(`Failed to retrieve CSP profile for user ${identity}: ${error}`)
+        // Grab max of 1000 person - limitation on PAN CSP APIs
+        const response = await httpClient.get('/v2/memberships/support-account?size=1000').catch((error: unknown) => {
+            throw new ConnectorError(`Failed to retrieve csp users: ${error}`)
         })
         let user = new User()
-        if (response.data.data.length > 0) {
-            let csp_user_data = response.data.data[0]
-            user.userAccountId = csp_user_data.userAccountId
-            user.supportAccountId = csp_user_data.supportAccountId
-            user.activationDate = csp_user_data.activationDate
-            user.email = csp_user_data.email
-            user.description = csp_user_data.description
-            user.membershipId = csp_user_data.membershipId
-            user.roles = []
-            const cspRoleMap = new Map(Array.from(rolesRef, a => [a.name, a.id]))
-            for (var memRole of csp_user_data.membershipRoles) {
-                let role = new Role()
-                role.name = memRole.roleName
-                role.id = cspRoleMap.get(memRole.roleName)!
-                user.roles.push(role)
+        let userFound = false
+
+        for (var csp_u of response.data.data) {
+            if (csp_u.membershipId == identity || csp_u.email == identity) {
+                userFound = true
+                user.userAccountId = csp_u.userAccountId.toString()
+                user.supportAccountId = csp_u.supportAccountId.toString()
+                user.activationDate = csp_u.activationDate
+                user.expirationDate = csp_u.expirationDate
+                user.email = csp_u.email
+                user.description = csp_u.description
+                user.membershipId = csp_u.membershipId.toString()
+                // Check if active
+                let date = new Date()
+                const dateFormat = dateCustomFormatting(date)
+                if (user.expirationDate && user.expirationDate < dateFormat) {
+                    user.IIQDisabled = true
+                }
+                user.roles = []
+                const cspRoleMap = new Map(Array.from(rolesRef, a => [a.name, a.id]))
+                for (var memRole of csp_u.membershipRoles) {
+                    let role = new Role()
+                    role.name = memRole.roleName
+                    role.id = cspRoleMap.get(memRole.roleName)!
+                    user.roles.push(role)
+                }
             }
+        }
+        if(!userFound) {
+            throw new ConnectorError(`Failed to retrieve user ${identity}`)
         }
         return user
     }
@@ -129,5 +153,195 @@ export class PanCspClient {
         }
 
         return {}
+    }
+
+    async createAccount(user: User): Promise<User> {
+        if (!user.email) {
+            throw new ConnectorError(`User email cannot be null.`)
+        }
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+        let userExists = false
+
+        // Create user object
+        await httpClient.post<void>(`/v2/users`, {
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName
+        }).catch((error: AxiosError) => {
+            if (error.message == "Request failed with status code 422") {
+                userExists = true
+            } else {
+                throw new ConnectorError(`Error creating CSP account for ${user.email} ` + error.message)
+            }
+        })
+
+        console.log(`User already has a membership - updating them.`)
+        if (userExists) {
+            let numRoles = user.roles.map(a => a.id)
+            await httpClient.post<void>(`/v2/memberships`, {
+                email: user.email,
+                membershipRoles: numRoles
+            }).catch((error: AxiosError) => {
+                throw new ConnectorError(`Error creating CSP account for user that already exists ${user.email} ` + error.message)
+            })
+        }
+
+        // Pause for the PAN API to catchup
+        await new Promise(f => setTimeout(f, globalThis.__USER_PAUSE));
+        // Fetch representation of the user
+        let newUser = await this.getAccount(user.email)
+
+        return newUser
+    }
+
+    async disableAccount(user: User): Promise<User> {
+        if (!user.membershipId) {
+            throw new ConnectorError(`User membership ID cannot be null to disable user.`)
+        }
+        if (!user.email) {
+            throw new ConnectorError(`User email ID cannot be null to disable user.`)
+        }
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+        // Get the ids of the role into an array
+        let numRoles = user.roles.map(a => a.id)
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+        let date = new Date()
+        date.setHours(date.getHours() - 7);
+        const dateFormat = dateCustomFormattingZeros(date)
+
+        console.log(`date: ${date} month: ${date.getUTCMonth()}`)
+
+        let body = {
+            membershipId: user.membershipId,
+            membershipRoles: numRoles,
+            expirationDate: dateFormat,
+            description: 'User disabled by SailPoint.'
+        }
+        console.log(JSON.stringify(body))
+
+        await httpClient.patch<void>(`/v2/membership`, {
+            membershipId: user.membershipId,
+            membershipRoles: numRoles,
+            expirationDate: dateFormat,
+            description: 'User disabled by SailPoint.'
+        }).catch((error: AxiosError) => {
+            throw new ConnectorError(`Failed to disable ${user.email}: ` + error.message)
+        })
+
+        // Pause for the PAN API to catchup
+        await new Promise(f => setTimeout(f, globalThis.__USER_PAUSE));
+        // Fetch representation of the user
+        let newUser = await this.getAccount(user.membershipId)
+        return newUser
+    }
+
+    async enableAccount(user: User): Promise<User> {
+        if (!user.membershipId) {
+            throw new ConnectorError(`User membership ID cannot be null to disable user.`)
+        }
+        if (!user.email) {
+            throw new ConnectorError(`User email ID cannot be null to disable user.`)
+        }
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+        // Get the ids of the role into an array
+        let numRoles = user.roles.map(a => a.id)
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+        const dateFormat = `2199-12-31 00:00:00`
+
+        await httpClient.patch<void>(`/v2/membership`, {
+            membershipId: user.membershipId,
+            membershipRoles: numRoles,
+            expirationDate: dateFormat,
+            description: 'User enabled by SailPoint.'
+        }).catch((error: AxiosError) => {
+            throw new ConnectorError(error.message)
+        })
+
+        // Pause for the PAN API to catchup
+        await new Promise(f => setTimeout(f, globalThis.__USER_PAUSE));
+        // Fetch representation of the user
+        let newUser = await this.getAccount(user.membershipId)
+        return newUser
+    }
+
+    async deleteAccount(membershipId: string): Promise<boolean> {
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+        // Get the ids of the role into an array
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+
+        await httpClient.delete<void>(`/v2/memberships/${membershipId}`).catch((error: AxiosError) => {
+            throw new ConnectorError(`Error delting account with membership id ${membershipId}: ` + error.message)
+        })
+
+        return true
+    }
+
+    async assignMembershipRoles(email: string, roles: Role[]): Promise<boolean> {
+        /*
+            This API is to be used only if a user is already a CSP user and a member of a different CSP support account, 
+            and needs to be added to this CSP support account.
+        */
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+
+        await httpClient.post<void>(`/v2/memberships`, {
+            email: email,
+            membershipRoles: roles
+        }).catch((error: AxiosError) => {
+            throw new ConnectorError(error.message)
+        })
+
+        return true
+    }
+
+    async setMembershipRoles(membershipId: string, roles: Role[]): Promise<boolean> {
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+        // Get the ids of the role into an array
+        let numRoles = roles.map(a => a.id)
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+
+        await httpClient.patch<void>(`/v2/membership`, {
+            membershipId: membershipId,
+            membershipRoles: numRoles
+        }).catch((error: AxiosError) => {
+            throw new ConnectorError(error.message)
+        })
+
+        return true
+    }
+
+    async updateAccount(user: User): Promise<User> {
+        if (!user.membershipId) {
+            throw new ConnectorError(`User membership ID cannot be null to update user.`)
+        }
+        //Check expiration tiem for Bearer toekn in Global variable
+        await this.checkTokenValidity()
+        // Get the ids of the role into an array
+        let numRoles = user.roles.map(a => a.id)
+        let httpClient = HTTPFactory.getHTTP(globalThis.__BASE_URL, globalThis.__ACCESS_TOKEN);
+
+        await httpClient.patch<void>(`/v2/membership`, {
+            membershipId: user.membershipId,
+            membershipRoles: numRoles,
+            expirationDate: user.expirationDate,
+            description: user.description
+        }).catch((error: AxiosError) => {
+            throw new ConnectorError(error.message)
+        })
+
+        // Pause for the PAN API to catchup
+        await new Promise(f => setTimeout(f, globalThis.__USER_PAUSE));
+        // Fetch representation of the user
+        let newUser = await this.getAccount(user.membershipId)
+        return newUser
     }
 }
