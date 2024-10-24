@@ -12,8 +12,8 @@
 [contributor-shield]:https://img.shields.io/github/contributors/sailpoint-oss/repo-template?label=Contributors
 [contributors-url]:https://github.com/sailpoint-oss/repo-template/graphs/contributors
 
-# application-title-here
-[Explore the docs »](https://your-link-to-colab-topic-here)
+# Palo Alto Customer Service Portal SailPoint Connector
+[Explore the docs »]([https://your-link-to-colab-topic-here](https://developer.sailpoint.com/discuss/t/palo-alto-networks-customer-service-portal-connector/74877))
 
 [New to the CoLab? Click here »](https://developer.sailpoint.com/discuss/t/about-the-sailpoint-developer-community-colab/11230)
 
@@ -38,4 +38,4 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 <!-- CONTACT -->
 ## Discuss
-[Click Here](https://developer.sailpoint.com/dicuss/tag/{tagName}) to discuss this tool with other users.
+[Click Here](https://developer.sailpoint.com/discuss/t/about-the-sailpoint-developer-community-colab/11230) to discuss this tool with other users.
