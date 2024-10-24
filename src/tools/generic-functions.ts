@@ -1,5 +1,18 @@
 import { ConnectorError, logger } from '@sailpoint/connector-sdk'
 
+export function dateCustomFormatting(date: Date): string {
+    const padStart = (value: number): string =>
+        value.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${padStart(date.getMonth()+1)}-${padStart(date.getDate())} ${padStart(date.getHours())}:${padStart(date.getMinutes())}:${padStart(date.getSeconds())}`;
+}
+
+export function dateCustomFormattingZeros(date: Date): string {
+    const padStart = (value: number): string =>
+        value.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${padStart(date.getMonth()+1)}-${padStart(date.getDate())} 00:00:00`;
+}
+
+
 // Function to check if a token is still good
 export async function check_token_expiration(exp_time: number) {
     // Check EXPIRATION_TIME

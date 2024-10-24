@@ -4,13 +4,15 @@ import { Role } from "./role";
 
 export class User {
     // CSP fields
-    userAccountId = -1
+    userAccountId?: string
     email?: string
-    supportAccountId?: number
-    membershipId?: number
+    supportAccountId?: string
+    membershipId?: string
     description?: string
     activationDate?: string
-    roles?: Role[]
+    expirationDate?: string
+    roles: Role[] = []
     firstName?: string
     lastName?: string
+    IIQDisabled?: boolean
 }
