@@ -13,7 +13,7 @@
 [contributors-url]:https://github.com/sailpoint-oss/repo-template/graphs/contributors
 
 # Palo Alto Customer Service Portal SailPoint Connector
-[Explore the docs »]([https://your-link-to-colab-topic-here](https://developer.sailpoint.com/discuss/t/palo-alto-networks-customer-service-portal-connector/74877))
+[Explore the docs »](https://developer.sailpoint.com/discuss/t/palo-alto-networks-customer-service-portal-connector/74877)
 
 [New to the CoLab? Click here »](https://developer.sailpoint.com/discuss/t/about-the-sailpoint-developer-community-colab/11230)
 

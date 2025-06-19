@@ -11,7 +11,7 @@ export class PanCspClient {
         // Fetch necessary properties from config.
         // Remove trailing slash in URL if present.  Then store in Global Variables.
         if (config?.baseURL.substr(config?.baseURL.length - 1) == '/') {
-            globalThis.__BASE_URL = config?.baseURL.substr(0, config?.instance.length - 1)
+            globalThis.__BASE_URL = config?.baseURL.substr(0, config?.baseURL.length - 1)
         } else {
             globalThis.__BASE_URL = config?.baseURL
         }
