@@ -1,6 +1,6 @@
 import { AttributeChange, ConnectorError, StdAccountCreateInput, StdAccountCreateOutput, StdEntitlementListOutput } from "@sailpoint/connector-sdk";
-import { Role } from "../model/role";
-import { User } from "../model/user";
+import { Role } from "./model/role";
+import { User } from "./model/user";
 
 export class Util {
 

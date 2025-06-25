@@ -3,6 +3,11 @@
 	"commands": [
 		"std:account:list",
 		"std:account:read",
+		"std:account:create",
+		"std:account:update",
+		"std:account:enable",
+		"std:account:disable",
+		"std:account:delete",
 		"std:test-connection",
 		"std:entitlement:list",
 		"std:entitlement:read"
@@ -52,9 +57,9 @@
 			]
 		}
 	],
-	"accountSchema":{
+	"accountSchema": {
 		"displayAttribute": "email",
-		"identityAttribute": "userAccountId",
+		"identityAttribute": "membershipId",
 		"attributes":[
 			{
 				"name": "userAccountId",
@@ -80,6 +85,11 @@
 				"name": "activationDate",
 				"type": "string",
 				"description": "Activation date for the user."
+			},
+			{
+				"name": "expirationDate",
+				"type": "string",
+				"description": "Expiration date for the user."
 			},
 			{
 				"name": "membershipId",
@@ -120,5 +130,45 @@
 				}
 			]
 		}
-	]
+	],
+	"accountCreateTemplate": {
+		"fields": [
+			{
+				"key": "email",
+				"label": "Email",
+				"type": "string",
+				"required": true,
+				"initialValue": {
+					"type": "identityAttribute",
+					"attributes": {
+						"name": "email"
+					}
+				}
+			},
+			{
+				"key": "firstName",
+				"label": "First Name",
+				"type": "string",
+				"required": true,
+				"initialValue": {
+					"type": "identityAttribute",
+					"attributes": {
+						"name": "firstname"
+					}
+				}
+			},
+			{
+				"key": "lastName",
+				"label": "Last Name",
+				"type": "string",
+				"required": true,
+				"initialValue": {
+					"type": "identityAttribute",
+					"attributes": {
+						"name": "lastname"
+					}
+				}
+			}
+		]
+	}
 }
