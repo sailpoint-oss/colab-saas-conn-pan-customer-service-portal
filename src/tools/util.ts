@@ -17,7 +17,7 @@ export class Util {
                 expirationDate: user.expirationDate ? user.expirationDate : '',
                 IIQDisabled: user.IIQDisabled ? user.IIQDisabled : false,
                 email: user.email ? user.email : '',
-                roles: user.roles ? user.roles.map((entitlement: Role) => { return `${entitlement.id}` }) : null,
+                roles: user.roles ? user.roles.map(entitlement => { return `${entitlement.id}` }) : null,
                 description: user.description ? user.description : '',
                 hasAccount: true
             }
@@ -34,7 +34,7 @@ export class Util {
             }
             for (var role of input.attributes['roles']) {
                 if (typeof role !== 'string') {
-                    throw new ConnectorError('Invalid entitlement type: ' + role)
+                    throw new ConnectorError(`Invalid entitlement type: ${role}. Expected string, got ${typeof role}`)
                 }
                 var userRole = new Role()
                 userRole.id = Number(role)
@@ -83,7 +83,7 @@ export class Util {
             account.attributes[c.attribute] = c.value
         } else {
             if (c.attribute != 'roles') {
-                throw new ConnectorError('Cannot add value to attribute: ' + c.attribute)
+                throw new ConnectorError(`Cannot add value to attribute: ${c.attribute}. Only 'roles' attribute supports add operations.`)
             }
     
             if (Array.isArray(c.value)) {
