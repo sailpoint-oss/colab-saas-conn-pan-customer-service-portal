@@ -1,4 +1,5 @@
 import { ConnectorError, logger } from '@sailpoint/connector-sdk'
+import { logger as customLogger } from '../logger/logger'
 
 export function dateCustomFormatting(date: Date): string {
     const padStart = (value: number): string =>
@@ -18,21 +19,29 @@ export async function check_token_expiration(exp_time: number) {
     // Check EXPIRATION_TIME
     let now = 0
     now = Date.now();
-    console.log('now Time =        ' + now)
-    console.log('Expiration Time = ' + exp_time)
+    customLogger.info('now Time =        ' + now)
+    customLogger.info('Expiration Time = ' + exp_time)
+    
+    if (exp_time) {
+        customLogger.info('Current time (ISO): ' + new Date(now).toISOString())
+        customLogger.info('Expiration time (ISO): ' + new Date(exp_time).toISOString())
+    }
+    
     const time_buffer = 250
     let valid_token = 'valid'
     if (!exp_time) {
-        console.log('######### Expiration Time is undefined')
+        customLogger.info('######### Expiration Time is undefined')
         valid_token = 'undefined'
     }
     else {
         if (exp_time - time_buffer <= now) {
-            console.log('Expiration Time is in the past')
+            customLogger.info('Expiration Time is in the past')
+            customLogger.info('Time difference: ' + (exp_time - now) + 'ms')
             valid_token = 'expired'
         }
         else {
-            console.log('### Expiration Time is in the future:  No need to Re-Authenticate')
+            customLogger.info('### Expiration Time is in the future:  No need to Re-Authenticate')
+            customLogger.info('Time until expiration: ' + (exp_time - now) + 'ms')
             valid_token = 'valid'
         }
     }
@@ -51,7 +60,6 @@ export async function auth() {
         grant_type: 'client_credentials',
         scope: 'user-management'
     };
-    console.log('AuthUrl = ' + globalThis.__AUTHURL)
 
     // set the headers
     const config = {
@@ -66,14 +74,30 @@ export async function auth() {
     };
 
     try {
+        customLogger.info('Making authentication request...')
         let resAuth = await axios(config)
+        customLogger.info('Authentication successful')
+        customLogger.info('Response status: ' + resAuth.status)
+        customLogger.info('Response data keys: ' + Object.keys(resAuth.data || {}).join(', '))
+        
         // Store res data in Global variable
         let now = 0
         now = Date.now();
         globalThis.__ACCESS_TOKEN = resAuth.data.access_token
         globalThis.__EXPIRATION_TIME = now + (resAuth.data.expires_in * 1000)
+        
+        customLogger.info('Access token stored: ' + (globalThis.__ACCESS_TOKEN ? globalThis.__ACCESS_TOKEN.substring(0, 20) + '...' : 'undefined'))
+        customLogger.info('Expiration time: ' + new Date(globalThis.__EXPIRATION_TIME).toISOString())
+        
         return resAuth
     } catch (err: any) {
-        throw new ConnectorError(err.name + '  ::  ' + err.message)
+        customLogger.error('Authentication failed:')
+        if (err.response) {
+            customLogger.error('  Status: ' + err.response.status)
+            customLogger.error('  Status Text: ' + err.response.statusText)
+            customLogger.error('  Response Data: ' + JSON.stringify(err.response.data, null, 2))
+        }
+        const errorMessage = err instanceof Error ? `${err.name} :: ${err.message}\nStack: ${err.stack}` : `${err.name} :: ${err.message}`
+        throw new ConnectorError(errorMessage)
     }
 }
